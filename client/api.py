@@ -17,7 +17,6 @@ from client import app
 from client import db
 
 #
-db.connect()  # the connection spends 1.8s
 purpose = "goi database test_sending"
 dataForQuery = {'selector': {"_id": {"$gt": 0}}, 'fields': ["_id", "_rev", "sensor_light", "sensor_temperature"],
                 'sort': [{"_id": "asc"}]}
@@ -72,6 +71,11 @@ def getdatajson(namedatabase):
     :param namedatabase:
     :return:
     """
+    try:
+        db.connect()  # the connection spends 1.8s
+    except:
+        db.disconnect()
+        db.connect()
     sensor_field = "payload"
     fields = ["_id", "rightNow", "type", sensor_field]
     dataraw = getDataFolowTime(namedatabase, fields)['docs']
@@ -84,6 +88,7 @@ def getdatajson(namedatabase):
     #             data[Node][Sensor]["labels"].append(dataraw[x]['rightNow'])
     #             data[Node][Sensor]["value"].append(dataraw[x]['payload'][Node][Sensor])
     #     else: return "Error"
+    db.disconnect()  # the connection spends 1.8s
     return flask.jsonify(results=dataraw)
 
 
@@ -95,12 +100,18 @@ def get_alldata(namedatabase):
     :param namedatabase:
     :return:
     """
+    try:
+        db.connect()  # the connection spends 1.8s
+    except:
+        db.disconnect()
+        db.connect()
     json_value = {"value": [], }
     fields = ["_id", "rightNow", "payload"]
     dataraw = getDataFolowTime(namedatabase, fields)
 
     if dataraw is {}:
-        return "Error"
+        db.disconnect()
+        return flask.jsonify(results="Error")
     dataraw = dataraw["docs"]
     # return flask.jsonify(results=dataraw)
     # Create the Shell Data for reponse POST methods
@@ -110,6 +121,7 @@ def get_alldata(namedatabase):
     if 'results' in sampledata:
         data = copy.deepcopy(sampledata["results"])
         if data == 'Error':
+            db.disconnect()
             return flask.jsonify(results="Error")
 
         for node in data.keys():
@@ -125,7 +137,9 @@ def get_alldata(namedatabase):
                                 dataraw[x]['payload'][node]['payload'][sensorName]['value'])
                         else:
                             data[node]['payload'][sensorName]['payload']["value"].append(0)
+        db.disconnect()
         return flask.jsonify(results=data)
+    db.disconnect()
     return flask.jsonify(results="Error")
 
 
@@ -149,9 +163,15 @@ def importjsonfile(namefile):
     :param namefile:
     :return:
     """
+    try:
+        db.connect()  # the connection spends 1.8s
+    except:
+        db.disconnect()
+        db.connect()
     name = namefile + '.json'
     with open(name) as json_data:
         data = json.load(json_data)
+        db.disconnect()
         return flask.jsonify(results=data)
 
 
@@ -161,6 +181,11 @@ def create_a_new_season():
 
     :return:
     """
+    try:
+        db.connect()  # the connection spends 1.8s
+    except:
+        db.disconnect()
+        db.connect()
     name = str(flask.request.form["name"])
     # tree = str(flask.request.form["tree"])
     # doc = db['design_seasons'].get_design_document("design_seasons")
@@ -181,7 +206,8 @@ def create_a_new_season():
     db.db_updates()
     # Create a new database
     db.create_database(name_new_season)
-    # del docsample
+    # del docsample        
+    db.disconnect()
     return flask.render_template("success.html")
 
 
@@ -191,13 +217,20 @@ def deleteseason():
     :return:
     """
     if flask.request.method == 'POST':
+        try:
+            db.connect()  # the connection spends 1.8s
+        except:
+            db.disconnect()
+            db.connect()
+
         numerical = int(flask.request.form['selectDelete'])
         docsample = copy.deepcopy(db['design_seasons'].get_design_document('design_seasons'))
         design_document = db['design_seasons']['_design/design_seasons']
         del design_document['seasons'][numerical]
         design_document.save()
+        
+        db.disconnect()
         return flask.render_template("success.html")
-        return "OK"
     return "Error"
 
 
@@ -207,6 +240,12 @@ def getseasons():
 
     :return:
     """
+    try:
+        db.connect()  # the connection spends 1.8s
+    except:
+        db.disconnect()
+        db.connect()
+
     doc = db['design_seasons'].get_design_document('design_seasons')
     array_seasons = copy.deepcopy(doc['seasons'])
     if not array_seasons:
@@ -218,6 +257,7 @@ def getseasons():
         for season in array_seasons:
             for key in jsonstr.keys():
                 jsonstr[key].append(season[key])
+    db.disconnect()
     return flask.jsonify(results=jsonstr)
 
 
@@ -230,11 +270,19 @@ def newsampledata(namedatabase):
     :param namedatabase:
     :return:
     """
+    try:
+        db.connect()  # the connection spends 1.8s
+    except:
+        db.disconnect()
+        db.connect()
+
     if '_design/newsampledata' in db[namedatabase].list_design_documents():
         docs = db[namedatabase].get_design_document("_design/newsampledata")
         # print docs.keys()
         if 'payload' in docs.keys():
+            db.disconnect()
             return flask.jsonify(results=docs['payload'])
+    db.disconnect()
     return flask.jsonify(results="Error")
 
 
@@ -245,7 +293,12 @@ def seasons(season):
     :param season:
     :return:
     """
-    print(flask.request.url_root)
+    try:
+        db.connect()
+    except:
+        db.disconnect()
+        db.connect()
+
     docs = requests.get(str(flask.request.url_root) + "api/getseasons")
     docs = json.loads(docs.text)
     list_s = db['design_seasons'].get_design_document('design_seasons')
@@ -258,8 +311,11 @@ def seasons(season):
         items = json.loads(items.text)
         # print items
         if items['results'] == "Error":
+            db.disconnect()
             return flask.render_template('empty.html')
+        db.disconnect()
         return flask.render_template('seasons.html', items=items['results'], dataSeasons=docs['results'], season=season)
+    db.disconnect()
     return 'You want path: %s' % flask.request.url_root
 
 
